@@ -32,22 +32,27 @@ for tournament in odds_json:
 # print(data)
 
 # Get UTS id based on the player name
-
 def get_id(name):
     term = name.replace(' ', '+').lower()
     search_url = f'https://www.ultimatetennisstatistics.com/autocompletePlayer?term={term}'
     search_response = call_url(search_url)
     search_json = json.loads(search_response.text)
-    player = list(filter(lambda x: (x['value'] == name), search_json))[0]
+    player = search_json[0]
     return player['id']
 
-test_name = data[0][0]['name']
-test = get_id(test_name)
-print(test_name)
-# print(test)
+# Get probability that player 1 will win for single event
+test_event = data[0]
 
-# Get probability that player 1 will win
-prob_url = 'https://www.ultimatetennisstatistics.com/h2hHypotheticalMatchup?playerId1=11127&playerId2=6269'
+[p1, p2] = test_event
+
+if p1['odds'] > p2['odds']:
+    [p1, p2] = [p2, p1]
+
+print(p1, p2)
+p1_id = get_id(p1['name'])
+p2_id = get_id(p2['name'])
+
+prob_url = f'https://www.ultimatetennisstatistics.com/h2hHypotheticalMatchup?playerId1={p1_id}&playerId2={p2_id}'
 prob_response = call_url(prob_url)
 
 doc = BeautifulSoup(prob_response.text, 'html.parser')
@@ -59,24 +64,24 @@ print(p1_win_prob)
 
 # Calculate who to bet on
 
-# sim_p1_wins = p1_win_prob * 10
-# sim_p2_wins = 1000 - sim_p1_wins
+sim_p1_wins = p1_win_prob * 10
+sim_p2_wins = 1000 - sim_p1_wins
 
-# p1_win = sim_p1_wins * (100/odds[0])
-# p1_lose = sim_p2_wins * -1
-# p2_lose = sim_p1_wins * -1
-# p2_win = sim_p2_wins * (odds[1]/100)
+p1_win = sim_p1_wins * (100/p1['odds'])
+p1_lose = sim_p2_wins * -1
+p2_lose = sim_p1_wins * -1
+p2_win = sim_p2_wins * (p2['odds']/100)
 
-# p1_total = p1_win + p1_lose
-# p2_total = p2_win + p2_lose
+p1_total = p1_win + p1_lose
+p2_total = p2_win + p2_lose
 
-# if p1_total < 0 and p2_total < 0:
-#     print('Do not bet')
-# else:
-#     if p1_total > p2_total:
-#         print('Bet on player 1')
-#     else:
-#         print('Bet on player 2')
+if p1_total < 0 and p2_total < 0:
+    print('Do not bet')
+else:
+    if p1_total > p2_total:
+        print('Bet on player 1')
+    else:
+        print('Bet on player 2')
 
-# print(p1_total)
-# print(p2_total)
+print(p1_total)
+print(p2_total)
