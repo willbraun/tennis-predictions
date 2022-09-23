@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "6f4a132fae4bd4e7de0c30b855a5a18ec128320f30ff82f74ea2472aec650223"
+            "sha256": "6097340ac4372f9acbed2b0d7b53c1eb2ab34bce6859dff9dc3452a8d7c41137"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -61,6 +61,22 @@
             ],
             "markers": "python_version >= '3.6'",
             "version": "==2.1.1"
+        },
+        "dotenv-cli": {
+            "hashes": [
+                "sha256:39b508b071f1b272c60280d04fdc0c7c1403dc2482515b0f4b84b573522206d1",
+                "sha256:5d25c79a6ea8ce455a98e887f5e5c1536d901c2061ba6ca725f856b643ca7583"
+            ],
+            "index": "pypi",
+            "version": "==3.1.0"
+        },
+        "firstclass-dotenv": {
+            "hashes": [
+                "sha256:8267b7030ea461e07032a1e45ff5812d3a038d95f77b2a7f2b97cee7c44e10e2",
+                "sha256:b9b46307fcd713769dfc6cfac7da3c35de329b6ed40800101218809f46b9fbd3"
+            ],
+            "index": "pypi",
+            "version": "==0.0.6"
         },
         "idna": {
             "hashes": [
@@ -139,6 +155,14 @@
             ],
             "index": "pypi",
             "version": "==2.9.3"
+        },
+        "python-decouple": {
+            "hashes": [
+                "sha256:2838cdf77a5cf127d7e8b339ce14c25bceb3af3e674e039d4901ba16359968c7",
+                "sha256:6cf502dc963a5c642ea5ead069847df3d916a6420cad5599185de6bab11d8c2e"
+            ],
+            "index": "pypi",
+            "version": "==3.6"
         },
         "requests": {
             "hashes": [

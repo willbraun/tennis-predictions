@@ -1,6 +1,47 @@
 from bs4 import BeautifulSoup
+from decouple import config
 import requests
 import json
+
+import psycopg2
+
+conn = psycopg2.connect(
+    dbname=config('DB_NAME'),
+    user=config('DB_USER'),
+    password=config('DB_PASS'),
+    host=config('DB_HOST')
+)
+
+cur = conn.cursor()
+
+# cur.execute("""select *
+# from INFORMATION_SCHEMA.COLUMNS
+# where TABLE_NAME='matches'""")
+
+cur.execute('SELECT * FROM matches')
+
+# cur.execute('INSERT INTO matches (Id) VALUES (1)')
+
+print(cur.fetchall())
+
+# cur.execute("""CREATE TABLE matches (
+#     Id SERIAL PRIMARY KEY,
+#     Player1Name VARCHAR(255),
+#     Player2Name VARCHAR(255),
+#     Player1Prob FLOAT,
+#     Player1Odds INT,
+#     Player2Odds INT,
+#     Player1Total FLOAT,
+#     Player2Total FLOAT,
+#     Decision INT,
+#     IsCorrect BIT,
+#     BetResult FLOAT
+#     )""")
+
+conn.commit()
+
+cur.close()
+conn.close()
 
 session = requests.Session()
 
@@ -73,10 +114,16 @@ print(p1_win_prob)
 sim_p1_wins = p1_win_prob * 10
 sim_p2_wins = 1000 - sim_p1_wins
 
-p1_win = sim_p1_wins * (100/-p1['odds'])
+def get_factor(odds):
+    if odds > 0:
+        return abs(odds)/100
+    else:
+        return 100/abs(odds)
+
+p1_win = sim_p1_wins * get_factor(p1['odds'])
 p1_lose = sim_p2_wins * -1
 p2_lose = sim_p1_wins * -1
-p2_win = sim_p2_wins * (p2['odds']/100)
+p2_win = sim_p2_wins * get_factor(p2['odds'])
 
 p1_total = p1_win + p1_lose
 p2_total = p2_win + p2_lose

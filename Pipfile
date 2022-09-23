@@ -8,6 +8,9 @@ beautifulsoup4 = "*"
 requests = "*"
 psycopg = "*"
 psycopg2-binary = "*"
+dotenv-cli = "*"
+firstclass-dotenv = "*"
+python-decouple = "*"
 
 [dev-packages]
 
