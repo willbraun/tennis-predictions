@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 beautifulsoup4 = "*"
 requests = "*"
+psycopg = "*"
+psycopg2-binary = "*"
 
 [dev-packages]
 

@@ -15,13 +15,19 @@ odds_json = json.loads(odds_response.text)
 data = []
 
 def get_details(outcome):
+    odds = outcome['price']['american']
+    if odds == 'EVEN':
+        odds = 0
+
     return {
         'name': outcome['description'],
-        'odds': int(outcome['price']['american']),
+        'odds': int(odds),
     }
 
 def get_outcomes(event):
-    outcomes = event['displayGroups'][0]['markets'][1]['outcomes']
+    markets = event['displayGroups'][0]['markets']
+    outcomes = list(filter(lambda x: x['description'] == 'Moneyline', markets))[0]['outcomes']
+
     return list(map(get_details, outcomes))
 
 for tournament in odds_json:
@@ -67,7 +73,7 @@ print(p1_win_prob)
 sim_p1_wins = p1_win_prob * 10
 sim_p2_wins = 1000 - sim_p1_wins
 
-p1_win = sim_p1_wins * (100/p1['odds'])
+p1_win = sim_p1_wins * (100/-p1['odds'])
 p1_lose = sim_p2_wins * -1
 p2_lose = sim_p1_wins * -1
 p2_win = sim_p2_wins * (p2['odds']/100)
