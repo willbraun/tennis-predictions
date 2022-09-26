@@ -12,7 +12,12 @@ conn = psycopg2.connect(
     host=config('DB_HOST')
 )
 
-cur = conn.cursor()
+def sql_command(statement):
+    cur = conn.cursor()
+    cur.execute(statement)
+    conn.commit()
+    cur.close()
+    conn.close()
 
 # cur.execute("""ALTER TABLE matches DROP COLUMN IsCorrect""")
 
@@ -28,10 +33,7 @@ cur = conn.cursor()
 
 # print(cur.fetchall())
 
-conn.commit()
-
-cur.close()
-conn.close()
+    
 
 session = requests.Session()
 
@@ -40,7 +42,7 @@ def call_url(url):
 
 # Get prematch odds for all ATP matches on current day
 
-def get_details(outcome):
+def get_outcome_details(outcome):
     odds = outcome['price']['american']
     if odds == 'EVEN':
         odds = 0
@@ -50,11 +52,13 @@ def get_details(outcome):
         'odds': int(odds),
     }
 
-def get_outcomes(event):
+def get_event_details(event):
     markets = event['displayGroups'][0]['markets']
     outcomes = list(filter(lambda x: x['description'] == 'Moneyline', markets))[0]['outcomes']
+    start_epoch = event['startTime']
+    match_id = event['id']
 
-    return list(map(get_details, outcomes))
+    return list(map(get_outcome_details, outcomes)) + [start_epoch, match_id]
 
 def get_all_matches():
     url = 'https://www.bovada.lv/services/sports/event/coupon/events/A/description/tennis/atp?lang=en&eventsLimit=50&preMatchOnly=true&marketFilterId=def'
@@ -64,12 +68,10 @@ def get_all_matches():
 
     for tournament in matches_json:
         events = tournament['events']
-        events_detailed = list(map(get_outcomes, events))
+        events_detailed = list(map(get_event_details, events))
         data = data + events_detailed
 
     return data
-
-data = get_all_matches()
 
 def get_id(name):
     term = name.replace(' ', '+').lower()
@@ -79,13 +81,13 @@ def get_id(name):
     player = search_json[0]
     return player['id']
 
-def get_players(event):
-    [p1, p2] = event
+def unpack_event(event):
+    [p1, p2, start_epoch, match_id] = event
 
     if p1['odds'] > p2['odds']:
         [p1, p2] = [p2, p1]
 
-    return [p1, p2]
+    return [p1, p2, start_epoch, match_id]
 
 def get_win_prob(p1, p2):
     p1_id = get_id(p1['name'])
@@ -121,21 +123,31 @@ def make_prediction(p1_win_prob, p1, p2):
     print(p1_total)
     print(p2_total)
 
+    global prediction
+
     if p1_total < 0 and p2_total < 0:
-        return 0
+         prediction = 0
     else:
         if p1_total > p2_total:
-            return 1
+            prediction = 1
         else:
-            return 2
+            prediction = 2
 
-def process_event(event):
-    [p1, p2] = get_players(event)
+    return [p1_total, p2_total, prediction]
+
+def insert_match(event):
+    [p1, p2, start_epoch, match_id] = unpack_event(event)
     p1_win_prob = get_win_prob(p1, p2)
+    [p1_total, p2_total, prediction] = make_prediction(p1_win_prob, p1, p2)
 
-    prediction = make_prediction(p1_win_prob, p1, p2)
+    # cur.execute("""INSERT INTO matches (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, IsCorrect, BetResult) 
+#                 VALUES (DEFAULT, 'Test Federer', 'Test Nadal', 60.0, -115, 110, 122.0, -160.0, 1, TRUE, 0.87)""")
 
+    insert_string = f"""INSERT INTO matches (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, StartEpoch, MatchId) 
+                        VALUES (DEFAULT, '{p1['name']}', '{p2['name']}', {p1_win_prob}, {p1['odds']}, {p2['odds']}, {p1_total}, {p2_total}, {prediction}, {start_epoch}, {match_id})"""
+    
+    sql_command(insert_string)
 
-
+data = get_all_matches()
 test_event = data[0]
-process_event(test_event)
+insert_match(test_event)
