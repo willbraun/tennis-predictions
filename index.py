@@ -153,8 +153,6 @@ test_event = data[0]
 # insert_match(test_event)
 
 
-today = datetime.today().strftime('%Y-%m-%d')
-
 def get_match_result(match):
     p1 = match['TeamOne']
     p2 = match['TeamTwo']
@@ -189,8 +187,8 @@ def get_match_results():
 
     return data
     
-    
 
+result_data = get_match_results()
 
-test = get_match_results()
-print(test)
+# def update_match_winner(match_result):
+
