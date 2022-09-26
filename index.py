@@ -1,8 +1,8 @@
 from bs4 import BeautifulSoup
 from decouple import config
+from datetime import datetime
 import requests
 import json
-
 import psycopg2
 
 conn = psycopg2.connect(
@@ -150,4 +150,47 @@ def insert_match(event):
 
 data = get_all_matches()
 test_event = data[0]
-insert_match(test_event)
+# insert_match(test_event)
+
+
+today = datetime.today().strftime('%Y-%m-%d')
+
+def get_match_result(match):
+    p1 = match['TeamOne']
+    p2 = match['TeamTwo']
+
+    global result
+
+    if p1['TeamStatus'] == 'won-game':
+        result = 1
+    if p2['TeamStatus'] == 'won-game':
+        result = 2
+
+    if bool(result):
+        return {
+            'p1_name': p1['PlayerNameForUrl'].replace('-', ' '), 
+            'p2_name': p2['PlayerNameForUrl'].replace('-', ' '),
+            'winner': result,
+        }
+    else:
+        raise Exception(f"No winner found for{match}")
+
+def get_match_results():
+    url = 'https://www.atptour.com/-/ajax/Scores/GetInitialScores'
+    response = call_url(url)
+    match_results_json = json.loads(response.text)
+    tournaments = match_results_json['liveScores']['Tournaments']
+    data = []
+
+    for tournament in tournaments:
+        matches = tournament['Matches']
+        match_result = list(map(get_match_result, matches))
+        data = data + match_result
+
+    return data
+    
+    
+
+
+test = get_match_results()
+print(test)
