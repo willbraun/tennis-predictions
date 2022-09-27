@@ -33,7 +33,7 @@ BEGIN
 	INTO 
 		iscorrectvalue, decisionvalue, player1oddsvalue, player2oddsvalue
 	WHERE 
-		player1name = 'Taro Daniel' AND player2name = 'Emilio Gomez' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 86400000;
+		player1name = 'Taro Daniel' AND player2name = 'Emilio Gomez' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
 
 	IF decisionvalue = winner
 		THEN 
@@ -60,4 +60,4 @@ SET
 	iscorrect = (decision = 1),
 	betresult = get_bet_result(1)
 WHERE 
-	player1name = 'Taro Daniel' AND player2name = 'Emilio Gomez' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 86400000;
+	player1name = 'Taro Daniel' AND player2name = 'Emilio Gomez' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
