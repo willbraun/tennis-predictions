@@ -1,4 +1,3 @@
-from nis import match
 from bs4 import BeautifulSoup
 from decouple import config
 import requests
@@ -126,11 +125,13 @@ def create_row_string(event):
 def insert_new_matches(match_data):
     start_string = f"""INSERT INTO matches (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, StartEpoch, MatchId) VALUES """
     value_string = ', '.join(list(map(create_row_string, match_data)))
-    insert_string = start_string + value_string + ';'
+    where_string = 'ON CONFLICT(MatchId) DO NOTHING'
+    insert_string = start_string + value_string + where_string + ';'
     sql_command(insert_string)
+        
 
-# data = get_all_matches()
-# insert_new_matches(data)
+data = get_all_matches()
+insert_new_matches(data)
 
 # Updating matches
 
