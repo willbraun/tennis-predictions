@@ -15,7 +15,7 @@ $$
 
 LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION get_bet_result(winner INT)
+CREATE OR REPLACE FUNCTION get_bet_result(p1_name VARCHAR(255), p2_name VARCHAR(255), winner INT)
 RETURNS FLOAT
 AS
 $$
@@ -32,7 +32,7 @@ BEGIN
 	INTO 
 		iscorrectvalue, decisionvalue, player1oddsvalue, player2oddsvalue
 	WHERE 
-		player1name = 'Taylor Fritz' AND player2name = 'Mackenzie McDonald' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+		player1name = p1_name AND player2name = p2_name AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
 	
 	IF decisionvalue = 0
 		THEN RETURN 0;
@@ -59,6 +59,6 @@ UPDATE
 	matches 
 SET 
 	iscorrect = (decision = 1),
-	betresult = get_bet_result(1)
+	betresult = get_bet_result('Taylor Fritz', 'Mackenzie McDonald', 1)
 WHERE 
 	player1name = 'Taylor Fritz' AND player2name = 'Mackenzie McDonald' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;

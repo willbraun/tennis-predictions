@@ -123,14 +123,14 @@ def create_row_string(event):
     row_string = f"""(DEFAULT, '{p1['name']}', '{p2['name']}', {p1_win_prob}, {p1['odds']}, {p2['odds']}, {p1_total}, {p2_total}, {prediction}, {start_epoch}, {match_id})"""
     return row_string
 
-def insert_all_matches(match_data):
+def insert_new_matches(match_data):
     start_string = f"""INSERT INTO matches (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, StartEpoch, MatchId) VALUES """
     value_string = ', '.join(list(map(create_row_string, match_data)))
     insert_string = start_string + value_string + ';'
     sql_command(insert_string)
 
 # data = get_all_matches()
-# insert_all_matches(data)
+# insert_new_matches(data)
 
 # Updating matches
 
@@ -168,19 +168,8 @@ def get_all_match_results():
 
     return data
 
-def create_update_row_string(match_result):
-    return f"""
-        UPDATE 
-            matches 
-        SET 
-            iscorrect = (decision = {match_result['winner']}),
-            betresult = get_bet_result({match_result['winner']})
-        WHERE 
-            player1name = '{match_result['p1_name']}' AND player2name = '{match_result['p2_name']}' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
-    """
-
-def update_all_matches(match_results):
-    start_string = f"""
+def define_GBR():
+    function_string = f"""
         CREATE OR REPLACE FUNCTION get_payout(odds INT)
             RETURNS FLOAT
             AS
@@ -198,7 +187,7 @@ def update_all_matches(match_results):
 
             LANGUAGE plpgsql;
 
-            CREATE OR REPLACE FUNCTION get_bet_result(winner INT)
+            CREATE OR REPLACE FUNCTION get_bet_result(p1_name VARCHAR(255), p2_name VARCHAR(255), winner INT)
             RETURNS FLOAT
             AS
             $$
@@ -215,7 +204,7 @@ def update_all_matches(match_results):
                 INTO 
                     iscorrectvalue, decisionvalue, player1oddsvalue, player2oddsvalue
                 WHERE 
-                    player1name = 'Taylor Fritz' AND player2name = 'Mackenzie McDonald' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+                    player1name = p1_name AND player2name = p2_name AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
                 
                 IF decisionvalue = 0
                     THEN RETURN 0;
@@ -239,87 +228,37 @@ def update_all_matches(match_results):
             LANGUAGE plpgsql;
 
     """
-    sql_command(start_string)
+    sql_command(function_string)
 
+def update_match(match_result):
+    p1 = match_result['p1_name']
+    p2 = match_result['p2_name']
+    winner = match_result['winner']
+
+    update_string = f"""
+        UPDATE 
+            matches 
+        SET 
+            iscorrect = (decision = {winner}),
+            betresult = get_bet_result('{p1}', '{p2}', {winner})
+        WHERE 
+            player1name = '{p1}' AND player2name = '{p2}' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+    """
+
+    sql_command(update_string)
+
+def update_completed_matches(match_results):
+    define_GBR()
     for match in match_results:
-        update_string = create_update_row_string(match)
-        sql_command(update_string)
+        update_match(match)
 
-# def update_match_winner(match_result):
-#     update_string = f"""
-#         CREATE OR REPLACE FUNCTION get_payout(odds INT)
-#         RETURNS FLOAT
-#         AS
-#         $$
-#         DECLARE
-#             payout FLOAT;
-#         BEGIN
-#             IF odds >= 0
-#                 THEN SELECT odds/100.0 INTO payout;
-#                 ELSE SELECT -100.0/odds INTO payout;
-#             END IF;
-#             RETURN payout;
-#         END
-#         $$
 
-#         LANGUAGE plpgsql;
-
-#         CREATE OR REPLACE FUNCTION get_bet_result(winner INT)
-#         RETURNS FLOAT
-#         AS
-#         $$
-#         DECLARE
-# 	iscorrectvalue BOOLEAN;
-# 	decisionvalue INT;
-# 	player1oddsvalue INT;
-# 	player2oddsvalue INT;
-# BEGIN
-# 	SELECT 
-# 		iscorrect, decision, player1odds, player2odds 
-# 	FROM 
-# 		matches 
-# 	INTO 
-# 		iscorrectvalue, decisionvalue, player1oddsvalue, player2oddsvalue
-# 	WHERE 
-# 		player1name = 'Taylor Fritz' AND player2name = 'Mackenzie McDonald' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
-	
-# 	IF decisionvalue = 0
-# 		THEN RETURN 0;
-# 	END IF;
-	
-# 	IF decisionvalue = winner
-# 		THEN 
-# 			IF decisionvalue = 1
-# 				THEN RETURN get_payout(player1oddsvalue);
-# 			END IF;
-
-# 			IF decisionvalue = 2
-# 				THEN RETURN get_payout(player2oddsvalue);
-# 			END IF;
-# 		ELSE
-# 			RETURN -1;
-# 	END IF;
-# END;
-#         $$
-
-#         LANGUAGE plpgsql;
-
-#         UPDATE 
-#             matches 
-#         SET 
-#             iscorrect = (decision = {match_result['winner']}),
-#             betresult = get_bet_result({match_result['winner']})
-#         WHERE 
-#             player1name = '{match_result['p1_name']}' AND player2name = '{match_result['p2_name']}' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
-
-#     """
-#     sql_command(update_string)
-
-test_results = [{'p1_name': 'Taylor Fritz', 'p2_name': 'Mackenzie McDonald', 'winner': 1}]
+test_results = [{'p1_name': 'Radu Albot', 'p2_name': 'Steve Johnson', 'winner': 1}, {'p1_name': 'Casper Ruud', 'p2_name': 'Nicolas Jarry', 'winner': 2}]
 
 # result_data = get_all_match_results()
 # print(result_data)
-update_all_matches(test_results) # test list with one result first
+
+# update_completed_matches(test_results)
 
 cur.close()
 conn.close()
