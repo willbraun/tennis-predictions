@@ -1,6 +1,6 @@
+from nis import match
 from bs4 import BeautifulSoup
 from decouple import config
-from datetime import datetime
 import requests
 import json
 import psycopg2
@@ -19,28 +19,12 @@ def sql_command(statement):
     cur.close()
     conn.close()
 
-# cur.execute("""ALTER TABLE matches DROP COLUMN IsCorrect""")
-
-# cur.execute("""ALTER TABLE matches ADD COLUMN IsCorrect BOOLEAN""")
-
-
-# cur.execute("""INSERT INTO matches (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, IsCorrect, BetResult) 
-#                 VALUES (DEFAULT, 'Test Federer', 'Test Nadal', 60.0, -115, 110, 122.0, -160.0, 1, TRUE, 0.87)""")
-
-# cur.execute('DELETE FROM matches WHERE id = 2')
-
-# cur.execute('SELECT * FROM matches')
-
-# print(cur.fetchall())
-
-    
-
 session = requests.Session()
 
 def call_url(url):
     return session.get(url, headers={'User-Agent': 'Mozilla/5.0'})
 
-# Get prematch odds for all ATP matches on current day
+# Inserting matches
 
 def get_outcome_details(outcome):
     odds = outcome['price']['american']
@@ -99,7 +83,7 @@ def get_win_prob(p1, p2):
     doc = BeautifulSoup(prob_response.text, 'html.parser')
     win_prob_row = doc.find(text='Win Probability')
     p1_win_prob = float(win_prob_row.parent.parent.find('h4').contents[0].replace('%', ''))
-    print(p1_win_prob)
+
     return p1_win_prob
 
 def get_factor(odds):
@@ -120,9 +104,6 @@ def make_prediction(p1_win_prob, p1, p2):
     p1_total = p1_win + p1_lose
     p2_total = p2_win + p2_lose
 
-    print(p1_total)
-    print(p2_total)
-
     global prediction
 
     if p1_total < 0 and p2_total < 0:
@@ -135,22 +116,24 @@ def make_prediction(p1_win_prob, p1, p2):
 
     return [p1_total, p2_total, prediction]
 
-def insert_match(event):
+def create_row_string(event):
     [p1, p2, start_epoch, match_id] = unpack_event(event)
     p1_win_prob = get_win_prob(p1, p2)
     [p1_total, p2_total, prediction] = make_prediction(p1_win_prob, p1, p2)
 
-    # cur.execute("""INSERT INTO matches (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, IsCorrect, BetResult) 
-#                 VALUES (DEFAULT, 'Test Federer', 'Test Nadal', 60.0, -115, 110, 122.0, -160.0, 1, TRUE, 0.87)""")
+    row_string = f"""(DEFAULT, '{p1['name']}', '{p2['name']}', {p1_win_prob}, {p1['odds']}, {p2['odds']}, {p1_total}, {p2_total}, {prediction}, {start_epoch}, {match_id})"""
+    return row_string
 
-    insert_string = f"""INSERT INTO matches (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, StartEpoch, MatchId) 
-                        VALUES (DEFAULT, '{p1['name']}', '{p2['name']}', {p1_win_prob}, {p1['odds']}, {p2['odds']}, {p1_total}, {p2_total}, {prediction}, {start_epoch}, {match_id})"""
-    
+def insert_all_matches(match_data):
+    start_string = f"""INSERT INTO matches (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, StartEpoch, MatchId) VALUES """
+    value_string = ', '.join(list(map(create_row_string, match_data)))
+    insert_string = start_string + value_string + ';'
     sql_command(insert_string)
 
 data = get_all_matches()
-insert_match(data[1])
+# insert_all_matches(data)
 
+# Updating matches
 
 def get_match_result(match):
     p1 = match['TeamOne']
