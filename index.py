@@ -149,8 +149,7 @@ def insert_match(event):
     sql_command(insert_string)
 
 data = get_all_matches()
-test_event = data[0]
-# insert_match(test_event)
+insert_match(data[1])
 
 
 def get_match_result(match):
@@ -164,16 +163,16 @@ def get_match_result(match):
     if p2['TeamStatus'] == 'won-game':
         result = 2
 
-    if bool(result):
+    if result == 1 or result == 2:
         return {
             'p1_name': p1['PlayerNameForUrl'].replace('-', ' '), 
             'p2_name': p2['PlayerNameForUrl'].replace('-', ' '),
             'winner': result,
         }
     else:
-        raise Exception(f"No winner found for{match}")
+        print(f'No result for {match}')
 
-def get_match_results():
+def get_all_match_results():
     url = 'https://www.atptour.com/-/ajax/Scores/GetInitialScores'
     response = call_url(url)
     match_results_json = json.loads(response.text)
@@ -188,7 +187,76 @@ def get_match_results():
     return data
     
 
-result_data = get_match_results()
+result_data = get_all_match_results()
 
-# def update_match_winner(match_result):
+def update_match_winner(match_result):
+    update_string = f"""
+        CREATE OR REPLACE FUNCTION get_payout(odds INT)
+        RETURNS FLOAT
+        AS
+        $$
+        DECLARE
+            payout FLOAT;
+        BEGIN
+            IF odds >= 0
+                THEN SELECT odds/100.0 INTO payout;
+                ELSE SELECT -100.0/odds INTO payout;
+            END IF;
+            RETURN payout;
+        END
+        $$
+
+        LANGUAGE plpgsql;
+
+        CREATE OR REPLACE FUNCTION get_bet_result(winner INT)
+        RETURNS FLOAT
+        AS
+        $$
+        DECLARE
+            iscorrectvalue BOOLEAN;
+            decisionvalue INT;
+            player1oddsvalue INT;
+            player2oddsvalue INT;
+            betresultvalue FLOAT;
+        BEGIN
+            SELECT 
+                iscorrect, decision, player1odds, player2odds 
+            FROM 
+                matches 
+            INTO 
+                iscorrectvalue, decisionvalue, player1oddsvalue, player2oddsvalue
+            WHERE 
+                player1name = 'Taro Daniel' AND player2name = 'Emilio Gomez' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 86400000;
+
+            IF decisionvalue = winner
+                THEN 
+                    IF decisionvalue = 1
+                        THEN betresultvalue = get_payout(player1oddsvalue);
+                    END IF;
+
+                    IF decisionvalue = 2
+                        THEN betresultvalue = get_payout(player2oddsvalue);
+                    END IF;
+                ELSE
+                    betresultvalue = -1;
+            END IF;
+            
+            RETURN betresultvalue;
+        END;
+        $$
+
+        LANGUAGE plpgsql;
+
+        UPDATE 
+            matches 
+        SET 
+            iscorrect = (decision = {match_result['winner']}),
+            betresult = get_bet_result({match_result['winner']})
+        WHERE 
+            player1name = '{match_result['p1_name']}' AND player2name = '{match_result['p2_name']}' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 86400000;
+
+    """
+    sql_command(update_string)
+
+
 
