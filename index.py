@@ -12,12 +12,11 @@ conn = psycopg2.connect(
     host=config('DB_HOST')
 )
 
+cur = conn.cursor()
+
 def sql_command(statement):
-    cur = conn.cursor()
     cur.execute(statement)
     conn.commit()
-    cur.close()
-    conn.close()
 
 session = requests.Session()
 
@@ -208,7 +207,6 @@ def update_all_matches(match_results):
                 decisionvalue INT;
                 player1oddsvalue INT;
                 player2oddsvalue INT;
-                betresultvalue FLOAT;
             BEGIN
                 SELECT 
                     iscorrect, decision, player1odds, player2odds 
@@ -217,22 +215,24 @@ def update_all_matches(match_results):
                 INTO 
                     iscorrectvalue, decisionvalue, player1oddsvalue, player2oddsvalue
                 WHERE 
-                    player1name = 'Taro Daniel' AND player2name = 'Emilio Gomez' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
-
+                    player1name = 'Taylor Fritz' AND player2name = 'Mackenzie McDonald' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+                
+                IF decisionvalue = 0
+                    THEN RETURN 0;
+                END IF;
+                
                 IF decisionvalue = winner
                     THEN 
                         IF decisionvalue = 1
-                            THEN betresultvalue = get_payout(player1oddsvalue);
+                            THEN RETURN get_payout(player1oddsvalue);
                         END IF;
 
                         IF decisionvalue = 2
-                            THEN betresultvalue = get_payout(player2oddsvalue);
+                            THEN RETURN get_payout(player2oddsvalue);
                         END IF;
                     ELSE
-                        betresultvalue = -1;
+                        RETURN -1;
                 END IF;
-                
-                RETURN betresultvalue;
             END;
             $$
 
@@ -269,36 +269,37 @@ def update_all_matches(match_results):
 #         AS
 #         $$
 #         DECLARE
-#             iscorrectvalue BOOLEAN;
-#             decisionvalue INT;
-#             player1oddsvalue INT;
-#             player2oddsvalue INT;
-#             betresultvalue FLOAT;
-#         BEGIN
-#             SELECT 
-#                 iscorrect, decision, player1odds, player2odds 
-#             FROM 
-#                 matches 
-#             INTO 
-#                 iscorrectvalue, decisionvalue, player1oddsvalue, player2oddsvalue
-#             WHERE 
-#                 player1name = 'Taro Daniel' AND player2name = 'Emilio Gomez' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+# 	iscorrectvalue BOOLEAN;
+# 	decisionvalue INT;
+# 	player1oddsvalue INT;
+# 	player2oddsvalue INT;
+# BEGIN
+# 	SELECT 
+# 		iscorrect, decision, player1odds, player2odds 
+# 	FROM 
+# 		matches 
+# 	INTO 
+# 		iscorrectvalue, decisionvalue, player1oddsvalue, player2oddsvalue
+# 	WHERE 
+# 		player1name = 'Taylor Fritz' AND player2name = 'Mackenzie McDonald' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+	
+# 	IF decisionvalue = 0
+# 		THEN RETURN 0;
+# 	END IF;
+	
+# 	IF decisionvalue = winner
+# 		THEN 
+# 			IF decisionvalue = 1
+# 				THEN RETURN get_payout(player1oddsvalue);
+# 			END IF;
 
-#             IF decisionvalue = winner
-#                 THEN 
-#                     IF decisionvalue = 1
-#                         THEN betresultvalue = get_payout(player1oddsvalue);
-#                     END IF;
-
-#                     IF decisionvalue = 2
-#                         THEN betresultvalue = get_payout(player2oddsvalue);
-#                     END IF;
-#                 ELSE
-#                     betresultvalue = -1;
-#             END IF;
-            
-#             RETURN betresultvalue;
-#         END;
+# 			IF decisionvalue = 2
+# 				THEN RETURN get_payout(player2oddsvalue);
+# 			END IF;
+# 		ELSE
+# 			RETURN -1;
+# 	END IF;
+# END;
 #         $$
 
 #         LANGUAGE plpgsql;
@@ -314,7 +315,11 @@ def update_all_matches(match_results):
 #     """
 #     sql_command(update_string)
 
+test_results = [{'p1_name': 'Taylor Fritz', 'p2_name': 'Mackenzie McDonald', 'winner': 1}]
 
-result_data = get_all_match_results()
-print(result_data)
-# update_all_matches([result_data[0]]) # test list with one result first
+# result_data = get_all_match_results()
+# print(result_data)
+update_all_matches(test_results) # test list with one result first
+
+cur.close()
+conn.close()

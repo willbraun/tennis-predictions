@@ -24,7 +24,6 @@ DECLARE
 	decisionvalue INT;
 	player1oddsvalue INT;
 	player2oddsvalue INT;
-	betresultvalue FLOAT;
 BEGIN
 	SELECT 
 		iscorrect, decision, player1odds, player2odds 
@@ -33,22 +32,24 @@ BEGIN
 	INTO 
 		iscorrectvalue, decisionvalue, player1oddsvalue, player2oddsvalue
 	WHERE 
-		player1name = 'Taro Daniel' AND player2name = 'Emilio Gomez' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
-
+		player1name = 'Taylor Fritz' AND player2name = 'Mackenzie McDonald' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+	
+	IF decisionvalue = 0
+		THEN RETURN 0;
+	END IF;
+	
 	IF decisionvalue = winner
 		THEN 
 			IF decisionvalue = 1
-				THEN betresultvalue = get_payout(player1oddsvalue);
+				THEN RETURN get_payout(player1oddsvalue);
 			END IF;
 
 			IF decisionvalue = 2
-				THEN betresultvalue = get_payout(player2oddsvalue);
+				THEN RETURN get_payout(player2oddsvalue);
 			END IF;
 		ELSE
-			betresultvalue = -1;
+			RETURN -1;
 	END IF;
-	
-	RETURN betresultvalue;
 END;
 $$
 
@@ -60,4 +61,4 @@ SET
 	iscorrect = (decision = 1),
 	betresult = get_bet_result(1)
 WHERE 
-	player1name = 'Taro Daniel' AND player2name = 'Emilio Gomez' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+	player1name = 'Taylor Fritz' AND player2name = 'Mackenzie McDonald' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
