@@ -15,40 +15,44 @@ $$
 
 LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION get_bet_result(p1_name VARCHAR(255), p2_name VARCHAR(255), winner INT)
+CREATE OR REPLACE FUNCTION get_bet_result(p1_name VARCHAR(255), p2_name VARCHAR(255), winner VARCHAR(255))
 RETURNS FLOAT
 AS
 $$
 DECLARE
-	iscorrectvalue BOOLEAN;
 	decisionvalue INT;
-	player1oddsvalue INT;
-	player2oddsvalue INT;
+	dbplayer1namevalue VARCHAR(255);
+	dbplayer2namevalue VARCHAR(255);
+	dbplayer1oddsvalue INT;
+	dbplayer2oddsvalue INT;
 BEGIN
 	SELECT 
-		iscorrect, decision, player1odds, player2odds 
+		decision, player1name, player2name, player1odds, player2odds 
 	FROM 
 		matches 
 	INTO 
-		iscorrectvalue, decisionvalue, player1oddsvalue, player2oddsvalue
+		decisionvalue, dbplayer1namevalue, dbplayer2namevalue, dbplayer1oddsvalue, dbplayer2oddsvalue
 	WHERE 
-		player1name = p1_name AND player2name = p2_name AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+		p1_name IN (player1name, player2name) AND p2_name IN (player1name, player2name) AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
 	
 	IF decisionvalue = 0
 		THEN RETURN 0;
 	END IF;
-	
-	IF decisionvalue = winner
-		THEN 
-			IF decisionvalue = 1
-				THEN RETURN get_payout(player1oddsvalue);
-			END IF;
 
-			IF decisionvalue = 2
-				THEN RETURN get_payout(player2oddsvalue);
+	IF decisionvalue = 1	
+		THEN 
+			IF winner = dbplayer1namevalue
+				THEN RETURN get_payout(dbplayer1oddsvalue);
+				ELSE RETURN -1;
 			END IF;
-		ELSE
-			RETURN -1;
+	END IF;
+
+	IF decisionvalue = 2	
+		THEN 
+			IF winner = dbplayer2namevalue
+				THEN RETURN get_payout(dbplayer2oddsvalue);
+				ELSE RETURN -1;
+			END IF;
 	END IF;
 END;
 $$
@@ -58,7 +62,6 @@ LANGUAGE plpgsql;
 UPDATE 
 	matches 
 SET 
-	iscorrect = (decision = 1),
-	betresult = get_bet_result('Taylor Fritz', 'Mackenzie McDonald', 1)
+	betresult = get_bet_result('Ugo Humbert', 'Dimitar Kuzmanov', 'Ugo Humbert')
 WHERE 
-	player1name = 'Taylor Fritz' AND player2name = 'Mackenzie McDonald' AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+	'Ugo Humbert' IN (player1name, player2name) AND 'Dimitar Kuzmanov' IN (player1name, player2name) AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
