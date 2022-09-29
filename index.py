@@ -1,9 +1,14 @@
 from bs4 import BeautifulSoup
 from decouple import config
+from pygit2 import Repository
 import requests
 import json
 import psycopg2
 import datetime
+
+branch_name = Repository('.').head.shorthand
+db_table = config('DB_TABLE') if branch_name == 'main' else config('DB_TABLE_TEST')
+print(db_table)
 
 conn = psycopg2.connect(
     dbname=config('DB_NAME'),
@@ -83,7 +88,7 @@ def define_GBR():
             SELECT 
                 decision, player1name, player2name, player1odds, player2odds 
             FROM 
-                matches 
+                {db_table} 
             INTO 
                 decisionvalue, dbplayer1namevalue, dbplayer2namevalue, dbplayer1oddsvalue, dbplayer2oddsvalue
             WHERE 
@@ -123,7 +128,7 @@ def update_match(match_result):
 
     update_string = f"""
         UPDATE 
-            matches 
+            {db_table} 
         SET 
             betresult = get_bet_result('{p1}', '{p2}', '{winner}')
         WHERE 
@@ -141,8 +146,6 @@ def update_completed_matches(match_results):
 # result_data = get_all_match_results()
 # print(result_data)
 # update_completed_matches(result_data)
-
-# test content
 
 
 # Inserting matches
@@ -249,15 +252,15 @@ def create_row_string(event):
     return row_string
 
 def insert_new_matches(match_data):
-    start_string = f"""INSERT INTO matches (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, StartEpoch, MatchId, DateTimeUTC) VALUES """
+    start_string = f"""INSERT INTO {db_table} (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, StartEpoch, MatchId, DateTimeUTC) VALUES """
     value_string = ', '.join(list(map(create_row_string, match_data)))
     where_string = ' ON CONFLICT (MatchId) DO NOTHING'
     insert_string = start_string + value_string + where_string + ';'
     sql_command(insert_string)
 
-# data = get_all_matches()
-# print(data)
-# insert_new_matches(data)
+data = get_all_matches()
+print(data)
+insert_new_matches(data)
 
 
 
