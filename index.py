@@ -1,6 +1,5 @@
 from bs4 import BeautifulSoup
 from decouple import config
-# from pygit2 import Repository
 import requests
 import json
 import psycopg2
@@ -16,6 +15,8 @@ elif file_name == 'index_test.py':
     db_table = config('DB_TABLE_TEST')
 else:
     raise Exception('Invalid filename')
+
+print(datetime.datetime.now())
 
 conn = psycopg2.connect(
     dbname=config('DB_NAME'),
@@ -151,7 +152,6 @@ def update_completed_matches(match_results):
 
 
 result_data = get_all_match_results()
-print(result_data)
 update_completed_matches(result_data)
 
 
@@ -265,10 +265,9 @@ def insert_new_matches(match_data):
     insert_string = start_string + value_string + where_string + ';'
     sql_command(insert_string)
 
-data = get_all_matches()
-print(data)
-insert_new_matches(data)
 
+data = get_all_matches()
+insert_new_matches(data)
 
 
 cur.close()

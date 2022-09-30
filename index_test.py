@@ -16,6 +16,8 @@ elif file_name == 'index_test.py':
 else:
     raise Exception('Invalid filename')
 
+print(datetime.datetime.now())
+
 conn = psycopg2.connect(
     dbname=config('DB_NAME'),
     user=config('DB_USER'),
