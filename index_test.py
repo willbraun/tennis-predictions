@@ -1,3 +1,4 @@
+from unittest import result
 from bs4 import BeautifulSoup
 from decouple import config
 import requests
@@ -151,8 +152,126 @@ def update_completed_matches(match_results):
         update_match(match)
 
 
-result_data = get_all_match_results()
-update_completed_matches(result_data)
+# result_data = get_all_match_results()
+# update_completed_matches(result_data)
+
+
+
+# 2nd attempt at updating
+
+def get_all_match_results2():
+    yesterday_date = datetime.datetime.today() - datetime.timedelta(1)
+    yesterday_str = str(yesterday_date).split(' ')[0].replace('-', '')
+    yesterday_str = '20221001'
+
+    url = f'http://m.espn.com/general/tennis/dailyresults?date={yesterday_str}&matchType=1&wjb='
+    response = call_url(url)
+
+    doc = BeautifulSoup(response.text, 'html.parser')
+    completed = doc.findAll(text='Final')
+    
+    result_html = list(map(lambda x: x.parent.parent.contents, completed))
+    result_names = list(map(lambda x: [x[2].split(' d.')[0].split(' ')[-1], x[4].split(' ')[-1]], result_html))
+    
+    return result_names
+
+
+
+def define_GBR2():
+    function_string = f"""
+        CREATE OR REPLACE FUNCTION get_payout(odds INT)
+        RETURNS FLOAT
+        AS
+        $$
+        DECLARE
+            payout FLOAT;
+        BEGIN
+            IF odds >= 0
+                THEN SELECT odds/100.0 INTO payout;
+                ELSE SELECT -100.0/odds INTO payout;
+            END IF;
+            RETURN payout;
+        END
+        $$
+
+        LANGUAGE plpgsql;
+
+        CREATE OR REPLACE FUNCTION get_bet_result(winner VARCHAR(255), loser VARCHAR(255))
+        RETURNS FLOAT
+        AS
+        $$
+        DECLARE
+            decisionvalue INT;
+            dbplayer1namevalue VARCHAR(255);
+            dbplayer2namevalue VARCHAR(255);
+            dbplayer1oddsvalue INT;
+            dbplayer2oddsvalue INT;
+        BEGIN
+            SELECT 
+                decision, player1name, player2name, player1odds, player2odds 
+            FROM 
+                {db_table}  
+            INTO 
+                decisionvalue, dbplayer1namevalue, dbplayer2namevalue, dbplayer1oddsvalue, dbplayer2oddsvalue
+            WHERE 
+                player1name LIKE '%' || winner || '%' OR player2name LIKE '%' || winner || '%'
+                AND player1name LIKE '%' || loser || '%' OR player2name LIKE '%' || loser || '%'
+                ;
+            
+            IF decisionvalue = 0
+                THEN RETURN 0;
+            END IF;
+
+            IF decisionvalue = 1	
+                THEN 
+                    IF dbplayer1namevalue LIKE '%' || winner || '%'
+                        THEN RETURN get_payout(dbplayer1oddsvalue);
+                        ELSE RETURN -1;
+                    END IF;
+            END IF;
+
+            IF decisionvalue = 2	
+                THEN 
+                    IF dbplayer2namevalue LIKE '%' || winner || '%'
+                        THEN RETURN get_payout(dbplayer2oddsvalue);
+                        ELSE RETURN -1;
+                    END IF;
+            END IF;
+        END;
+        $$
+
+        LANGUAGE plpgsql;
+    """
+    sql_command(function_string)
+
+
+def update_match2(match_result):
+    winner = match_result[0]
+    loser = match_result[1]
+
+    update_string = f"""
+        UPDATE 
+            {db_table} 
+        SET 
+            betresult = get_bet_result('{winner}', '{loser}')
+        WHERE 
+            player1name LIKE '%' || '{winner}' || '%' OR player2name LIKE '%' || '{winner}' || '%'
+	        AND player1name LIKE '%' || '{loser}' || '%' OR player2name LIKE '%' || '{loser}' || '%'
+	        ;
+    """
+
+    sql_command(update_string)
+
+# test_result2 = ['Medvedev', 'Ramos-Vinolas']
+# update_match2(test_result2)
+
+def update_completed_matches2(match_results):
+    define_GBR2()
+    for match in match_results:
+        update_match2(match)
+
+results2 = get_all_match_results2()
+update_completed_matches2(results2)
 
 
 # Inserting matches
@@ -266,8 +385,8 @@ def insert_new_matches(match_data):
     sql_command(insert_string)
 
 
-data = get_all_matches()
-insert_new_matches(data)
+# data = get_all_matches()
+# insert_new_matches(data)
 
 
 cur.close()

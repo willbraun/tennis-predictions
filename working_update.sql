@@ -15,7 +15,7 @@ $$
 
 LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION get_bet_result(p1_name VARCHAR(255), p2_name VARCHAR(255), winner VARCHAR(255))
+CREATE OR REPLACE FUNCTION get_bet_result(winner VARCHAR(255), loser VARCHAR(255))
 RETURNS FLOAT
 AS
 $$
@@ -29,11 +29,12 @@ BEGIN
 	SELECT 
 		decision, player1name, player2name, player1odds, player2odds 
 	FROM 
-		matches 
+		matches_test 
 	INTO 
 		decisionvalue, dbplayer1namevalue, dbplayer2namevalue, dbplayer1oddsvalue, dbplayer2oddsvalue
-	WHERE 
-		p1_name IN (player1name, player2name) AND p2_name IN (player1name, player2name) AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+	WHERE player1name LIKE '%' || winner || '%' OR player2name LIKE '%' || winner || '%'
+	AND player1name LIKE '%' || loser || '%' OR player2name LIKE '%' || loser || '%'
+	AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
 	
 	IF decisionvalue = 0
 		THEN RETURN 0;
@@ -41,7 +42,7 @@ BEGIN
 
 	IF decisionvalue = 1	
 		THEN 
-			IF winner = dbplayer1namevalue
+			IF dbplayer1namevalue LIKE '%' || winner || '%'
 				THEN RETURN get_payout(dbplayer1oddsvalue);
 				ELSE RETURN -1;
 			END IF;
@@ -49,7 +50,7 @@ BEGIN
 
 	IF decisionvalue = 2	
 		THEN 
-			IF winner = dbplayer2namevalue
+			IF dbplayer2namevalue LIKE '%' || winner || '%'
 				THEN RETURN get_payout(dbplayer2oddsvalue);
 				ELSE RETURN -1;
 			END IF;
@@ -60,8 +61,12 @@ $$
 LANGUAGE plpgsql;
 
 UPDATE 
-	matches 
+	matches_test 
 SET 
-	betresult = get_bet_result('Ugo Humbert', 'Dimitar Kuzmanov', 'Ugo Humbert')
-WHERE 
-	'Ugo Humbert' IN (player1name, player2name) AND 'Dimitar Kuzmanov' IN (player1name, player2name) AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+	betresult = get_bet_result('Kygrios', 'Majchrzak')
+WHERE player1name LIKE '%Kygrios%' OR player2name LIKE '%Kygrios%'
+AND player1name LIKE '%Majchrzak%' OR player2name LIKE '%Majchrzak%'
+AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+
+
+-- AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
