@@ -39,130 +39,9 @@ def call_url(url):
 
 # Updating matches
 
-def get_match_result(match):
-    p1_name = match['TeamOne']['PlayerNameForUrl'].replace('-', ' ')
-    p2_name = match['TeamTwo']['PlayerNameForUrl'].replace('-', ' ')
-    
-    return {
-        'p1_name': p1_name, 
-        'p2_name': p2_name,
-        'winner': p1_name if int(match['Winner']) == 2 else p2_name,
-    }
-
 def get_all_match_results():
-    url = 'https://www.atptour.com/-/ajax/Scores/GetInitialScores'
-    response = call_url(url)
-    match_results_json = json.loads(response.text)
-    tournaments = match_results_json['liveScores']['Tournaments']
-    data = []
-
-    for tournament in tournaments:
-        matches = tournament['Matches']
-        completed = list(filter(lambda match: match['Status'] == 'F', matches))
-        match_result = list(map(get_match_result, completed))
-        data = data + match_result
-
-    return data
-
-def define_GBR():
-    function_string = f"""
-        CREATE OR REPLACE FUNCTION get_payout(odds INT)
-        RETURNS FLOAT
-        AS
-        $$
-        DECLARE
-            payout FLOAT;
-        BEGIN
-            IF odds >= 0
-                THEN SELECT odds/100.0 INTO payout;
-                ELSE SELECT -100.0/odds INTO payout;
-            END IF;
-            RETURN payout;
-        END
-        $$
-
-        LANGUAGE plpgsql;
-
-        CREATE OR REPLACE FUNCTION get_bet_result(p1_name VARCHAR(255), p2_name VARCHAR(255), winner VARCHAR(255))
-        RETURNS FLOAT
-        AS
-        $$
-        DECLARE
-            decisionvalue INT;
-            dbplayer1namevalue VARCHAR(255);
-            dbplayer2namevalue VARCHAR(255);
-            dbplayer1oddsvalue INT;
-            dbplayer2oddsvalue INT;
-        BEGIN
-            SELECT 
-                decision, player1name, player2name, player1odds, player2odds 
-            FROM 
-                {db_table} 
-            INTO 
-                decisionvalue, dbplayer1namevalue, dbplayer2namevalue, dbplayer1oddsvalue, dbplayer2oddsvalue
-            WHERE 
-                p1_name IN (player1name, player2name) AND p2_name IN (player1name, player2name) AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
-            
-            IF decisionvalue = 0
-                THEN RETURN 0;
-            END IF;
-
-            IF decisionvalue = 1	
-                THEN 
-                    IF winner = dbplayer1namevalue
-                        THEN RETURN get_payout(dbplayer1oddsvalue);
-                        ELSE RETURN -1;
-                    END IF;
-            END IF;
-
-            IF decisionvalue = 2	
-                THEN 
-                    IF winner = dbplayer2namevalue
-                        THEN RETURN get_payout(dbplayer2oddsvalue);
-                        ELSE RETURN -1;
-                    END IF;
-            END IF;
-        END;
-        $$
-
-        LANGUAGE plpgsql;
-
-    """
-    sql_command(function_string)
-
-def update_match(match_result):
-    p1 = match_result['p1_name']
-    p2 = match_result['p2_name']
-    winner = match_result['winner']
-
-    update_string = f"""
-        UPDATE 
-            {db_table} 
-        SET 
-            betresult = get_bet_result('{p1}', '{p2}', '{winner}')
-        WHERE 
-            '{p1}' IN (player1name, player2name) AND '{p2}' IN (player1name, player2name) AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
-    """
-
-    sql_command(update_string)
-
-def update_completed_matches(match_results):
-    define_GBR()
-    for match in match_results:
-        update_match(match)
-
-
-# result_data = get_all_match_results()
-# update_completed_matches(result_data)
-
-
-
-# 2nd attempt at updating
-
-def get_all_match_results2():
     yesterday_date = datetime.datetime.today() - datetime.timedelta(1)
     yesterday_str = str(yesterday_date).split(' ')[0].replace('-', '')
-    yesterday_str = '20221001'
 
     url = f'http://m.espn.com/general/tennis/dailyresults?date={yesterday_str}&matchType=1&wjb='
     response = call_url(url)
@@ -176,8 +55,7 @@ def get_all_match_results2():
     return result_names
 
 
-
-def define_GBR2():
+def define_GBR():
     function_string = f"""
         CREATE OR REPLACE FUNCTION get_payout(odds INT)
         RETURNS FLOAT
@@ -214,9 +92,9 @@ def define_GBR2():
             INTO 
                 decisionvalue, dbplayer1namevalue, dbplayer2namevalue, dbplayer1oddsvalue, dbplayer2oddsvalue
             WHERE 
-                player1name LIKE '%' || winner || '%' OR player2name LIKE '%' || winner || '%'
-                AND player1name LIKE '%' || loser || '%' OR player2name LIKE '%' || loser || '%'
-                ;
+                (player1name LIKE '%' || winner || '%' OR player2name LIKE '%' || winner || '%')
+                AND (player1name LIKE '%' || loser || '%' OR player2name LIKE '%' || loser || '%')
+                AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 345600000;
             
             IF decisionvalue = 0
                 THEN RETURN 0;
@@ -245,7 +123,7 @@ def define_GBR2():
     sql_command(function_string)
 
 
-def update_match2(match_result):
+def update_match(match_result):
     winner = match_result[0]
     loser = match_result[1]
 
@@ -255,23 +133,21 @@ def update_match2(match_result):
         SET 
             betresult = get_bet_result('{winner}', '{loser}')
         WHERE 
-            player1name LIKE '%' || '{winner}' || '%' OR player2name LIKE '%' || '{winner}' || '%'
-	        AND player1name LIKE '%' || '{loser}' || '%' OR player2name LIKE '%' || '{loser}' || '%'
-	        ;
+            (player1name LIKE '%' || '{winner}' || '%' OR player2name LIKE '%' || '{winner}' || '%')
+	        AND (player1name LIKE '%' || '{loser}' || '%' OR player2name LIKE '%' || '{loser}' || '%')
+	        AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 345600000;
     """
 
     sql_command(update_string)
 
-# test_result2 = ['Medvedev', 'Ramos-Vinolas']
-# update_match2(test_result2)
 
-def update_completed_matches2(match_results):
-    define_GBR2()
+def update_completed_matches(match_results):
+    define_GBR()
     for match in match_results:
-        update_match2(match)
+        update_match(match)
 
-results2 = get_all_match_results2()
-update_completed_matches2(results2)
+all_results = get_all_match_results()
+update_completed_matches(all_results)
 
 
 # Inserting matches
@@ -385,8 +261,8 @@ def insert_new_matches(match_data):
     sql_command(insert_string)
 
 
-# data = get_all_matches()
-# insert_new_matches(data)
+data = get_all_matches()
+insert_new_matches(data)
 
 
 cur.close()

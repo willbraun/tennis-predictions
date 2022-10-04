@@ -32,9 +32,9 @@ BEGIN
 		matches_test 
 	INTO 
 		decisionvalue, dbplayer1namevalue, dbplayer2namevalue, dbplayer1oddsvalue, dbplayer2oddsvalue
-	WHERE player1name LIKE '%' || winner || '%' OR player2name LIKE '%' || winner || '%'
-	AND player1name LIKE '%' || loser || '%' OR player2name LIKE '%' || loser || '%'
-	AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+	WHERE (player1name LIKE '%' || winner || '%' OR player2name LIKE '%' || winner || '%')
+	AND (player1name LIKE '%' || loser || '%' OR player2name LIKE '%' || loser || '%')
+	AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 345600000;
 	
 	IF decisionvalue = 0
 		THEN RETURN 0;
@@ -64,9 +64,6 @@ UPDATE
 	matches_test 
 SET 
 	betresult = get_bet_result('Kygrios', 'Majchrzak')
-WHERE player1name LIKE '%Kygrios%' OR player2name LIKE '%Kygrios%'
-AND player1name LIKE '%Majchrzak%' OR player2name LIKE '%Majchrzak%'
-AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
-
-
--- AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+WHERE (player1name LIKE '%Kygrios%' OR player2name LIKE '%Kygrios%')
+AND (player1name LIKE '%Majchrzak%' OR player2name LIKE '%Majchrzak%')
+AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 345600000;

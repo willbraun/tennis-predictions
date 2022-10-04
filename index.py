@@ -1,3 +1,4 @@
+from unittest import result
 from bs4 import BeautifulSoup
 from decouple import config
 import requests
@@ -38,30 +39,21 @@ def call_url(url):
 
 # Updating matches
 
-def get_match_result(match):
-    p1_name = match['TeamOne']['PlayerNameForUrl'].replace('-', ' ')
-    p2_name = match['TeamTwo']['PlayerNameForUrl'].replace('-', ' ')
-    
-    return {
-        'p1_name': p1_name, 
-        'p2_name': p2_name,
-        'winner': p1_name if int(match['Winner']) == 2 else p2_name,
-    }
-
 def get_all_match_results():
-    url = 'https://www.atptour.com/-/ajax/Scores/GetInitialScores'
+    yesterday_date = datetime.datetime.today() - datetime.timedelta(1)
+    yesterday_str = str(yesterday_date).split(' ')[0].replace('-', '')
+
+    url = f'http://m.espn.com/general/tennis/dailyresults?date={yesterday_str}&matchType=1&wjb='
     response = call_url(url)
-    match_results_json = json.loads(response.text)
-    tournaments = match_results_json['liveScores']['Tournaments']
-    data = []
 
-    for tournament in tournaments:
-        matches = tournament['Matches']
-        completed = list(filter(lambda match: match['Status'] == 'F', matches))
-        match_result = list(map(get_match_result, completed))
-        data = data + match_result
+    doc = BeautifulSoup(response.text, 'html.parser')
+    completed = doc.findAll(text='Final')
+    
+    result_html = list(map(lambda x: x.parent.parent.contents, completed))
+    result_names = list(map(lambda x: [x[2].split(' d.')[0].split(' ')[-1], x[4].split(' ')[-1]], result_html))
+    
+    return result_names
 
-    return data
 
 def define_GBR():
     function_string = f"""
@@ -82,7 +74,7 @@ def define_GBR():
 
         LANGUAGE plpgsql;
 
-        CREATE OR REPLACE FUNCTION get_bet_result(p1_name VARCHAR(255), p2_name VARCHAR(255), winner VARCHAR(255))
+        CREATE OR REPLACE FUNCTION get_bet_result(winner VARCHAR(255), loser VARCHAR(255))
         RETURNS FLOAT
         AS
         $$
@@ -96,11 +88,13 @@ def define_GBR():
             SELECT 
                 decision, player1name, player2name, player1odds, player2odds 
             FROM 
-                {db_table} 
+                {db_table}  
             INTO 
                 decisionvalue, dbplayer1namevalue, dbplayer2namevalue, dbplayer1oddsvalue, dbplayer2oddsvalue
             WHERE 
-                p1_name IN (player1name, player2name) AND p2_name IN (player1name, player2name) AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+                (player1name LIKE '%' || winner || '%' OR player2name LIKE '%' || winner || '%')
+                AND (player1name LIKE '%' || loser || '%' OR player2name LIKE '%' || loser || '%')
+                AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 345600000;
             
             IF decisionvalue = 0
                 THEN RETURN 0;
@@ -108,7 +102,7 @@ def define_GBR():
 
             IF decisionvalue = 1	
                 THEN 
-                    IF winner = dbplayer1namevalue
+                    IF dbplayer1namevalue LIKE '%' || winner || '%'
                         THEN RETURN get_payout(dbplayer1oddsvalue);
                         ELSE RETURN -1;
                     END IF;
@@ -116,7 +110,7 @@ def define_GBR():
 
             IF decisionvalue = 2	
                 THEN 
-                    IF winner = dbplayer2namevalue
+                    IF dbplayer2namevalue LIKE '%' || winner || '%'
                         THEN RETURN get_payout(dbplayer2oddsvalue);
                         ELSE RETURN -1;
                     END IF;
@@ -125,34 +119,35 @@ def define_GBR():
         $$
 
         LANGUAGE plpgsql;
-
     """
     sql_command(function_string)
 
+
 def update_match(match_result):
-    p1 = match_result['p1_name']
-    p2 = match_result['p2_name']
-    winner = match_result['winner']
+    winner = match_result[0]
+    loser = match_result[1]
 
     update_string = f"""
         UPDATE 
             {db_table} 
         SET 
-            betresult = get_bet_result('{p1}', '{p2}', '{winner}')
+            betresult = get_bet_result('{winner}', '{loser}')
         WHERE 
-            '{p1}' IN (player1name, player2name) AND '{p2}' IN (player1name, player2name) AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 172800000;
+            (player1name LIKE '%' || '{winner}' || '%' OR player2name LIKE '%' || '{winner}' || '%')
+	        AND (player1name LIKE '%' || '{loser}' || '%' OR player2name LIKE '%' || '{loser}' || '%')
+	        AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 345600000;
     """
 
     sql_command(update_string)
+
 
 def update_completed_matches(match_results):
     define_GBR()
     for match in match_results:
         update_match(match)
 
-
-result_data = get_all_match_results()
-update_completed_matches(result_data)
+all_results = get_all_match_results()
+update_completed_matches(all_results)
 
 
 # Inserting matches
