@@ -46,7 +46,7 @@ def get_all_match_results():
     response = call_url(url)
 
     doc = BeautifulSoup(response.text, 'html.parser')
-    completed = doc.findAll(text='Final')
+    completed = doc.findAll(string='Final')
     
     result_html = list(map(lambda x: x.parent.parent.contents, completed))
     result_names = list(map(lambda x: [x[2].split(' d.')[0].split(' ')[-1], x[4].split(' ')[-1]], result_html))
@@ -206,7 +206,7 @@ def get_win_prob(p1, p2):
     prob_response = call_url(prob_url)
 
     doc = BeautifulSoup(prob_response.text, 'html.parser')
-    win_prob_row = doc.find(text='Win Probability')
+    win_prob_row = doc.find(string='Win Probability')
     p1_win_prob = float(win_prob_row.parent.parent.find('h4').contents[0].replace('%', ''))
 
     return p1_win_prob
