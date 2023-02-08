@@ -4,7 +4,7 @@ The purpose of this project is to practice web scraping and simulate bets on ten
 
 ## Usage
 
-I have a PostGresSQL database set up locally, and I use launchd from my computer to run index.py periodically. I then run get_result.py to print out the rate of return of my simulated bets.
+I have a PostGreSQL database set up locally, and I use launchd from my computer to run index.py periodically. I can then run get_result.py to print out the rate of return of my simulated bets. To set up something similar, you will need to create a PostGreSQL database and import your credentials to util.py.
 
 ## Technologies used
 
