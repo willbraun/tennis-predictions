@@ -1,42 +1,23 @@
 from bs4 import BeautifulSoup
-from decouple import config
 import requests
 import json
-import psycopg2
 import datetime
 import os
+import util
 
 
 file_name = os.path.basename(__file__)
-
-if file_name == 'index.py':
-    db_table = config('DB_TABLE')
-elif file_name == 'index_test.py':
-    db_table = config('DB_TABLE_TEST')
-else:
-    raise Exception('Invalid filename')
+db_table = util.set_db_table(file_name)
+conn = util.set_conn()
+cur = conn.cursor()
+session = requests.Session()
 
 print(datetime.datetime.now())
-
-conn = psycopg2.connect(
-    dbname=config('DB_NAME'),
-    user=config('DB_USER'),
-    password=config('DB_PASS'),
-    host=config('DB_HOST')
-)
-
-cur = conn.cursor()
-
-def sql_command(statement):
-    cur.execute(statement)
-    conn.commit()
-
-session = requests.Session()
 
 def call_url(url):
     return session.get(url, headers={'User-Agent': 'Mozilla/5.0'})
 
-# Updating matches
+# Updating existing matches
 
 def get_all_match_results():
     yesterday_date = datetime.datetime.today() - datetime.timedelta(1)
@@ -52,7 +33,6 @@ def get_all_match_results():
     result_names = list(map(lambda x: [x[2].split(' d.')[0].split(' ')[-1], x[4].split(' ')[-1]], result_html))
     
     return result_names
-
 
 def define_GBR():
     function_string = f"""
@@ -119,7 +99,7 @@ def define_GBR():
 
         LANGUAGE plpgsql;
     """
-    sql_command(function_string)
+    util.sql_command(cur, conn, function_string)
 
 
 def update_match(match_result):
@@ -137,7 +117,7 @@ def update_match(match_result):
 	        AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 345600000;
     """
 
-    sql_command(update_string)
+    util.sql_command(cur, conn, update_string)
 
 
 def update_completed_matches(match_results):
@@ -149,7 +129,7 @@ all_results = get_all_match_results()
 update_completed_matches(all_results)
 
 
-# Inserting matches
+# Inserting new matches
 
 def get_outcome_details(outcome):
     odds = outcome['price']['american']
@@ -257,12 +237,11 @@ def insert_new_matches(match_data):
     value_string = ', '.join(list(map(create_row_string, match_data)))
     where_string = ' ON CONFLICT (MatchId) DO NOTHING'
     insert_string = start_string + value_string + where_string + ';'
-    sql_command(insert_string)
+    util.sql_command(cur, conn, insert_string)
 
 
 data = get_all_matches()
 insert_new_matches(data)
-
 
 cur.close()
 conn.close()
