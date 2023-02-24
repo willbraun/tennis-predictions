@@ -23,3 +23,6 @@ def set_conn():
 def sql_command(cur, conn, statement):
     cur.execute(statement)
     conn.commit()
+
+def sanitize(string):
+    return string.replace("'", "")

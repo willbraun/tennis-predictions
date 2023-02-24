@@ -30,7 +30,11 @@ def get_all_match_results():
     completed = doc.findAll(string='Final')
     
     result_html = list(map(lambda x: x.parent.parent.contents, completed))
-    result_names = list(map(lambda x: [x[2].split(' d.')[0].split(' ')[-1], x[4].split(' ')[-1]], result_html))
+    result_names = list(map(lambda x: [
+        util.sanitize(x[2].split(' d.')[0].split(' ')[-1]), 
+        util.sanitize(x[4].split(' ')[-1].replace("'",""))
+        ],
+        result_html))
     
     return result_names
 
@@ -103,8 +107,8 @@ def define_GBR():
 
 
 def update_match(match_result):
-    winner = match_result[0]
-    loser = match_result[1]
+    winner = util.sanitize(match_result[0])
+    loser = util.sanitize(match_result[1])
 
     update_string = f"""
         UPDATE 
