@@ -216,7 +216,7 @@ def make_prediction(p1_win_prob, p1, p2):
     global prediction
 
     if p1_total < 0 and p2_total < 0:
-         prediction = 0
+        prediction = 0
     else:
         if p1_total > p2_total:
             prediction = 1
