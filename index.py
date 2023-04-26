@@ -207,8 +207,8 @@ def make_prediction(p1_win_prob, p1, p2):
 
     p1_win = sim_p1_wins * get_factor(p1['odds'])
     p1_lose = sim_p2_wins * -1
-    p2_lose = sim_p1_wins * -1
     p2_win = sim_p2_wins * get_factor(p2['odds'])
+    p2_lose = sim_p1_wins * -1
 
     p1_total = p1_win + p1_lose
     p2_total = p2_win + p2_lose
@@ -216,7 +216,7 @@ def make_prediction(p1_win_prob, p1, p2):
     global prediction
 
     if p1_total < 0 and p2_total < 0:
-         prediction = 0
+        prediction = 0
     else:
         if p1_total > p2_total:
             prediction = 1
