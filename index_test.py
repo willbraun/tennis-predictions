@@ -19,19 +19,28 @@ def call_url(url):
     return session.get(url, headers={'User-Agent': 'Mozilla/5.0'})
 
 # Updating existing matches
+days = 7
+
+def convert_date(offset):
+    date = datetime.datetime.today() - datetime.timedelta(offset)
+    return str(date).split(' ')[0].replace('-', '')
+
+def get_dates():
+    return list(map(lambda x: convert_date(x), range(days)))
 
 def get_all_match_results():
     # Type 1 - mens singles
     # Type 2 - womens singles
-    type_results = list(map(lambda x: get_match_type_results(x), [1, 2]))
-    result = reduce(lambda a, b: a + b, type_results)
+    result = []
+    dates = get_dates()
+    for type in range(2):
+        for date in dates:
+            result = result + get_match_results(date, type)
+
     return result
 
-def get_match_type_results(type):
-    yesterday_date = datetime.datetime.today() - datetime.timedelta(1)
-    yesterday_str = str(yesterday_date).split(' ')[0].replace('-', '')
-
-    url = f'http://m.espn.com/general/tennis/dailyresults?date={yesterday_str}&matchType={type}&wjb='
+def get_match_results(date, type):
+    url = f'http://m.espn.com/general/tennis/dailyresults?date={date}&matchType={type}&wjb='
     response = call_url(url)
 
     doc = BeautifulSoup(response.text, 'html.parser')
@@ -126,7 +135,8 @@ def update_match(match_result):
         WHERE 
             (player1name LIKE '%' || '{winner}' || '%' OR player2name LIKE '%' || '{winner}' || '%')
 	        AND (player1name LIKE '%' || '{loser}' || '%' OR player2name LIKE '%' || '{loser}' || '%')
-	        AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 345600000;
+	        AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < {days * 86400000}
+            AND betresult IS NULL;
     """
 
     util.sql_command(cur, conn, update_string)
