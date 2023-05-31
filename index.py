@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+from functools import reduce
 import requests
 import json
 import datetime
@@ -20,10 +21,17 @@ def call_url(url):
 # Updating existing matches
 
 def get_all_match_results():
+    # Type 1 - mens singles
+    # Type 2 - womens singles
+    type_results = list(map(lambda x: get_match_type_results(x), [1, 2]))
+    result = reduce(lambda a, b: a + b, type_results)
+    return result
+
+def get_match_type_results(type):
     yesterday_date = datetime.datetime.today() - datetime.timedelta(1)
     yesterday_str = str(yesterday_date).split(' ')[0].replace('-', '')
 
-    url = f'http://m.espn.com/general/tennis/dailyresults?date={yesterday_str}&matchType=1&wjb='
+    url = f'http://m.espn.com/general/tennis/dailyresults?date={yesterday_str}&matchType={type}&wjb='
     response = call_url(url)
 
     doc = BeautifulSoup(response.text, 'html.parser')
@@ -154,7 +162,7 @@ def get_event_details(event):
     return list(map(get_outcome_details, outcomes)) + [start_epoch, match_id]
 
 def get_all_matches():
-    url = 'https://www.bovada.lv/services/sports/event/coupon/events/A/description/tennis/atp?lang=en&eventsLimit=50&preMatchOnly=true&marketFilterId=def'
+    url = 'https://www.bovada.lv/services/sports/event/coupon/events/A/description/tennis?lang=en&eventsLimit=50&preMatchOnly=true&marketFilterId=def'
     response = call_url(url)
     matches_json = json.loads(response.text)
     data = []
@@ -171,8 +179,12 @@ def get_id(name):
     search_url = f'https://www.ultimatetennisstatistics.com/autocompletePlayer?term={term}'
     search_response = call_url(search_url)
     search_json = json.loads(search_response.text)
-    player = search_json[0]
-    return player['id']
+
+    if len(search_json) > 0:
+        player = search_json[0]
+        return player['id']
+    else:
+        return 0
 
 def unpack_event(event):
     [p1, p2, start_epoch, match_id] = event
@@ -185,6 +197,9 @@ def unpack_event(event):
 def get_win_prob(p1, p2):
     p1_id = get_id(p1['name'])
     p2_id = get_id(p2['name'])
+
+    if p1_id == 0 or p2_id == 0:
+        return None
 
     prob_url = f'https://www.ultimatetennisstatistics.com/h2hHypotheticalMatchup?playerId1={p1_id}&playerId2={p2_id}'
     prob_response = call_url(prob_url)
@@ -231,6 +246,9 @@ def convert_time(epoch):
 def create_row_string(event):
     [p1, p2, start_epoch, match_id] = unpack_event(event)
     p1_win_prob = get_win_prob(p1, p2)
+    if p1_win_prob == None:
+        return ''
+
     [p1_total, p2_total, prediction] = make_prediction(p1_win_prob, p1, p2)
 
     row_string = f"""(DEFAULT, '{p1['name']}', '{p2['name']}', {p1_win_prob}, {p1['odds']}, {p2['odds']}, {p1_total}, {p2_total}, {prediction}, {start_epoch}, {match_id}, '{convert_time(start_epoch)}')"""
@@ -238,7 +256,7 @@ def create_row_string(event):
 
 def insert_new_matches(match_data):
     start_string = f"""INSERT INTO {db_table} (Id, Player1Name, Player2Name, Player1Prob, Player1Odds, Player2Odds, Player1Total, Player2Total, Decision, StartEpoch, MatchId, DateTimeUTC) VALUES """
-    value_string = ', '.join(list(map(create_row_string, match_data)))
+    value_string = ', '.join(filter(lambda x: x != '', list(map(create_row_string, match_data))))
     where_string = ' ON CONFLICT (MatchId) DO NOTHING'
     insert_string = start_string + value_string + where_string + ';'
     util.sql_command(cur, conn, insert_string)
