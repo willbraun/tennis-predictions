@@ -29,18 +29,11 @@ def get_dates():
     return list(map(lambda x: convert_date(x), range(days)))
 
 def get_all_match_results():
-    # Type 1 - mens singles
-    # Type 2 - womens singles
-    result = []
     dates = get_dates()
-    for type in range(2):
-        for date in dates:
-            result = result + get_match_results(date, type)
+    return list(reduce(lambda a, b: a + get_match_results(b), dates, []))
 
-    return result
-
-def get_match_results(date, type):
-    url = f'http://m.espn.com/general/tennis/dailyresults?date={date}&matchType={type}&wjb='
+def get_match_results(date):
+    url = f'http://m.espn.com/general/tennis/dailyresults?date={date}&matchType=1&wjb='
     response = call_url(url)
 
     doc = BeautifulSoup(response.text, 'html.parser')
@@ -94,7 +87,8 @@ def define_GBR():
             WHERE 
                 (player1name LIKE '%' || winner || '%' OR player2name LIKE '%' || winner || '%')
                 AND (player1name LIKE '%' || loser || '%' OR player2name LIKE '%' || loser || '%')
-                AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < 345600000;
+                AND CAST(EXTRACT(epoch FROM NOW()) AS BIGINT)*1000 - startepoch < {days * 86400000}
+                AND betresult IS NULL;
             
             IF decisionvalue = 0
                 THEN RETURN 0;
@@ -122,7 +116,6 @@ def define_GBR():
     """
     util.sql_command(cur, conn, function_string)
 
-
 def update_match(match_result):
     winner = util.sanitize(match_result[0])
     loser = util.sanitize(match_result[1])
@@ -141,11 +134,11 @@ def update_match(match_result):
 
     util.sql_command(cur, conn, update_string)
 
-
 def update_completed_matches(match_results):
     define_GBR()
     for match in match_results:
         update_match(match)
+
 
 all_results = get_all_match_results()
 update_completed_matches(all_results)
