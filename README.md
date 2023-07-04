@@ -1,6 +1,8 @@
 # Overview
 
-The purpose of this project is to practice web scraping and simulate bets on tennis matches. Index.py scrapes a match prediction and betting odds from the web to simulate a bet. After the match occurs, it updates my database with the result and calculates the simulated payout.
+I built this to practice web scraping and simulate bets on tennis matches. Index.py scrapes a match prediction and betting odds from the web to simulate a bet. After the match occurs, it updates my database with the result and calculates the simulated payout.
+
+Check out my detailed blog post about this project [here](https://blog.willbraun.dev/how-i-tried-to-get-rich-using-web-scraping).
 
 ## Usage
 
